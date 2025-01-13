@@ -1,2 +1,2 @@
 all:
-	gcc toralize.c -o build/toralizer
+	gcc toralize.c -o build/toralize
