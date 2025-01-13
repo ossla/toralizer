@@ -26,7 +26,6 @@ int main(int argc, char** argv) {
     char buf[ressize];
 
     if (argc < 3) {
-        // the error occurs if we have incorrect usage
         fprintf(stderr, "Usage: %s <host> <port>", argv[0]);
         return -1;
     }
@@ -46,23 +45,36 @@ int main(int argc, char** argv) {
     sock.sin_addr.s_addr = inet_addr(PROXY_ADDR);
 
     if (connect(s, (struct sockaddr*)&sock, sizeof(sock))) {
+        printf("err: can't connect to tor proxy with %s:%d\n", PROXY_ADDR, PROXY_PORT);
         perror("connect");
-
         return -1;
     }
 
-    printf("Connected to proxy\n");
-
+    printf("connected to proxy\n");
+    printf("connected to tor proxy with %s:%d\n", PROXY_ADDR, PROXY_PORT);
     req = Request(host, port);
-    write(s, req, reqsize);
 
-    memset(buf, 0, ressize); // to clean buffer
-    if (read(s, buf, ressize) < 1) {
-        perror("read");
-        CloseConnection(s, req);
+    write(s, req, reqsize);     // to send request
+                                // (writing a pre-filled request to socket "s")
+
+    memset(buf, 0, ressize);            // to clean buffer
+
+
+    printf("waiting for response... \n");
+    int response_code = read(s, buf, ressize);
+    printf("response received\n");
+    if (response_code == 0) {
+        printf("connection closed by server\n");
         return -1;
-    }    
+    }
+    if (response_code < 1) {    // to get response
+        perror("read");
+        close(s);
+        free(req);
+        return -1;
+    }
 
+    
     res = (Res*)buf;
     success = (res->cd == 90);  // 90: request granted
                                 // 91: request rejected or failed
@@ -70,9 +82,11 @@ int main(int argc, char** argv) {
                                 //     identd on the client
                                 // 93: request rejected because the client program and identd
                                 //     report different user-ids
+    
     if (!success) {
         fprintf(stderr, "Unable to traverse\nthe proxy, error code: %d\n", res->cd);
-        CloseConnection(s, req);
+        close(s);
+        free(req);
         return -1;
     }
     

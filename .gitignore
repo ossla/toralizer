@@ -1,5 +1,12 @@
 .vscode/
 
-build/
-
 .env
+
+build/
+Build/
+
+debug/
+Debug/
+
+release/
+Release/
